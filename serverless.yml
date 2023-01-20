@@ -13,7 +13,8 @@ provider:
   region: us-east-1
 
   environment:
-    clients_table_name: { Ref: ClientsTable }
+    clients_table: { Ref: ClientsTable }
+    messages_table: { Ref: MessagesTable }
     WSSAPIGATEWAYENDPOINT:
       Fn::Join:
         - ""

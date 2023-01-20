@@ -1,40 +1,34 @@
-import { APIGatewayProxyEvent, APIGatewayProxyEventQueryStringParameters, APIGatewayProxyResult } from "aws-lambda"
-import AWS, { AWSError } from 'aws-sdk'
-import { Key } from "aws-sdk/clients/dynamodb"
+import { 
+  APIGatewayProxyEvent, 
+  APIGatewayProxyEventQueryStringParameters, 
+  APIGatewayProxyResult 
+} from "aws-lambda"
+import AWS from 'aws-sdk'
 import { v4 } from "uuid"
+import { 
+  Action, 
+  Client,
+  SendMessageBody,
+  GetMessagesBody
+} from './types';
+import { 
+  sendResponse,
+  isConnectionNotExistError,
+  getNicknameToNickname,
+  createClientsMessage
+} from './helpers'
 
-type Action = '$connect' | '$disconnect' | 'getMessages' | 'sendMessage' | 'getClients'
-type Client = {
-  connectionId: string,
-  nickname: string
-}
-type SendMessageBody = {
-  message: string,
-  recipientNickname: 'string',
-}
-type GetMessagesBody = {
-  targetNickname: string, 
-  limit: number,
-  startKey: Key | undefined
-}
+class HandleError extends Error{}
 const docClient = new AWS.DynamoDB.DocumentClient()
 const CLIENTS_TABLE_NAME = `${process.env.clients_table}`
 const MESSAGES_TABLE_NAME = `${process.env.messages_table}`
-class HandleError extends Error{}
 const apiGw = new AWS.ApiGatewayManagementApi({
-  endpoint: process.env['WSSAPIGATEWAYENDPOINT']
+  endpoint: `${process.env.WSSAPIGATEWAYENDPOINT}`
 })
-const sendResponse = (code:number, message:string) => {
-  return {
-    statusCode: code,
-    body: message
-  }
-}
 
 export const handle = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   const routeKey = event.requestContext.routeKey as Action
   const connectionId = event.requestContext.connectionId as string 
-
   try {
     switch(routeKey) {
       case '$connect': 
@@ -62,24 +56,20 @@ export const handle = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
       await postToConnection(connectionId,  JSON.stringify({ type: "error", message: e.message }))
       return sendResponse(200, 'ok')
     }
-
     throw e
   }
 };
 
 const parseSendMessageBody = (body: string | null): SendMessageBody => {
   const sendMsgBody = JSON.parse(body || "{}") as SendMessageBody;
-
   if (!sendMsgBody || !sendMsgBody.recipientNickname || !sendMsgBody.message) {
     throw new HandleError("invalid SendMessageBody");
   }
-
   return sendMsgBody;
 };
 
 const parseGetMessageBody = (body: string | null) => {
   const getMessagesBody = JSON.parse(body || "{}") as GetMessagesBody;
-
   if (
     !getMessagesBody ||
     !getMessagesBody.targetNickname ||
@@ -87,7 +77,6 @@ const parseGetMessageBody = (body: string | null) => {
   ) {
     throw new HandleError("invalid GetMessageBody");
   }
-
   return getMessagesBody;
 };
 
@@ -95,7 +84,6 @@ const handleConnect = async (connectionId: string, queryParams: APIGatewayProxyE
   if(!queryParams || !queryParams['nickname']) {
     return sendResponse(403, '')
   }
-
   const existingConnectionId = await getConnectionIdByNickname(queryParams['nickname'])
   
   if (
@@ -114,9 +102,7 @@ const handleConnect = async (connectionId: string, queryParams: APIGatewayProxyE
       }
     })
     .promise()
-
   await notifyClients(connectionId)
-  
   return sendResponse(200, 'ok')
 }
 
@@ -139,7 +125,6 @@ const getConnectionIdByNickname = async (nickname: string): Promise<string | und
     const client = (output.Items as Client[])[0]
     return client.connectionId
   }
-
   return undefined
 }
 
@@ -152,9 +137,7 @@ const handleDisconnect = async (connectionId: string): Promise<APIGatewayProxyRe
       }
     })
     .promise()
-  
   await notifyClients(connectionId)
-
   return sendResponse(200, 'ok')
 }
 
@@ -173,7 +156,6 @@ const getAllClients = async (): Promise<Client[]> => {
       TableName: CLIENTS_TABLE_NAME
     })
     .promise()
-
   const clients = output.Items || []
   return clients as Client[]
 }
@@ -189,7 +171,6 @@ const postToConnection = async (
         Data: messageBody,
       })
       .promise();
-
     return true;
   } catch (e) {
     if (isConnectionNotExistError(e)) {
@@ -201,7 +182,6 @@ const postToConnection = async (
           },
         })
         .promise();
-
       return false;
     } else {
       throw e;
@@ -209,17 +189,11 @@ const postToConnection = async (
   }
 };
 
-const isConnectionNotExistError = (e: unknown) =>
-  (e as AWSError).statusCode === 410;
-
 const handleGetClients = async (connectionId: string): Promise<APIGatewayProxyResult> => {
   const clients = getAllClients()
   await postToConnection(connectionId, createClientsMessage(await clients))
-  
   return sendResponse(200, 'ok')
 }
-
-const createClientsMessage = (clients: Client[]): string => JSON.stringify({ type: 'clients', value: {clients} })
 
 const getClient = async (connectionId: string) => {
   const output = await docClient 
@@ -233,9 +207,6 @@ const getClient = async (connectionId: string) => {
   
   return output.Item as Client
 }
-
-const getNicknameToNickname = (nicknames: string[]) =>
-  nicknames.sort().join("#");
 
 const handleSendMessage = async (client: Client, body: SendMessageBody) => {
   const nicknameToNickname = getNicknameToNickname([
@@ -274,7 +245,6 @@ const handleSendMessage = async (client: Client, body: SendMessageBody) => {
       })
       .promise();
   }
-
   return sendResponse(200, 'ok');
 };
 
@@ -309,6 +279,5 @@ const handleGetMessages = async (client: Client, body: GetMessagesBody) => {
       },
     }),
   );
-
   return sendResponse(200, 'ok');
 };

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MessageItem } from './MessageItem';
 
 export const ChatWindow = ({
@@ -16,26 +16,26 @@ export const ChatWindow = ({
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      };
+    };
     
-      useEffect(() => {
-        scrollToBottom();
-      });
+    useEffect(() => {
+      scrollToBottom();
+    });
     
-      const messagesGroupedBySender = messages.reduce((prev, curr) => {
-        if (prev.length > 0 && curr.sender === prev[prev.length - 1].sender) {
-          prev[prev.length - 1].messages.push(curr.message);
-          return prev;
-        } else {
-          return [
-            ...prev,
-            {
-              sender: curr.sender,
-              messages: [curr.message],
-            },
-          ];
-        }
-      }, [] as { sender: string; messages: string[] }[]);
+    const messagesGroupedBySender = messages.reduce((prev, curr) => {
+      if (prev.length > 0 && curr.sender === prev[prev.length - 1].sender) {
+        prev[prev.length - 1].messages.push(curr.message);
+        return prev;
+      } else {
+        return [
+          ...prev,
+          {
+            sender: curr.sender,
+            messages: [curr.message],
+          },
+        ];
+      }
+    }, [] as { sender: string; messages: string[] }[]);
     
       const submit = () => {
         setMessage("");

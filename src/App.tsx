@@ -3,8 +3,8 @@ import './App.css';
 import { ChatWindow } from './ChatWindow';
 import { Login } from './Login';
 import { WebSocketConnector } from './WebSocketConnector';
-import { MessageItem } from "./MessageItem";
 import Sidebar from "./Sidebar";
+import { MessageItem } from "./MessageItem";
 
 const connector = new WebSocketConnector();
 const WS_URL = "wss://95xl1os9sf.execute-api.us-east-1.amazonaws.com/dev";
